@@ -127,15 +127,6 @@ class OptionsServiceProvider extends AbstractServiceProvider
         Route::options('{any}',function () {
             return OptionsService::getOptions( Request::getRequestUri() );
         })->where('any', '.*');
-
-//        Route::options( '/', 'OptionsController@options' );
-//        Route::options( '{a}', 'OptionsController@options' )->where(['a' => '.*']);
-//        Route::options( '{a}/{b}', 'OptionsController@options' )->where(['a' => '.*', 'b' => '.*']);
-//        Route::options( '{a}/{b}/{c}', 'OptionsController@options' )->where(['a' => '.*', 'b' => '.*', 'c' => '.*']);
-//        Route::options( '{a}/{b}/{c}/{d}', 'OptionsController@options' )->where(['a' => '.*', 'b' => '.*', 'c' => '.*', 'd' => '.*']);
-//        Route::options( '{a}/{b}/{c}/{d}/{e}', 'OptionsController@options' )->where(['a' => '.*', 'b' => '.*', 'c' => '.*', 'd' => '.*', 'e' => '.*']);
-//        Route::options( '{a}/{b}/{c}/{d}/{e}/{f}', 'OptionsController@options' )->where(['a' => '.*', 'b' => '.*', 'c' => '.*', 'd' => '.*', 'e' => '.*', 'f' => '.*']);
-//        Route::options( '{a}/{b}/{c}/{d}/{e}/{f}/{g}', 'OptionsController@options' )->where(['a' => '.*', 'b' => '.*', 'c' => '.*', 'd' => '.*', 'e' => '.*', 'f' => '.*', 'g' => '.*']);
     }
 
     /**

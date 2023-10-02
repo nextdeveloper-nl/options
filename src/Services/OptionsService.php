@@ -39,6 +39,8 @@ class OptionsService
         $data['description']    =   $options ? $options['controller_description']: 'There is no direct request to this URI thus no description.';
         $data['directories']    =   self::getDirectories($route);
 
+        $data['availableOperations'] = self::getAvailableOperations($options);
+
         $methods = Requests::where('uri', $route)->get();
 
         $data['methods'] = [];
@@ -70,6 +72,49 @@ class OptionsService
         }
 
         return $data;
+    }
+
+    public static function getAvailableOperations(Requests $requests) {
+        $explodedRequest = explode('\\', $requests->controller);
+        $explodedUri = explode('/', $requests->uri);
+
+        $model = Str::ucfirst(Str::camel($explodedUri[1]));
+
+        $service = $explodedRequest[0] . '\\' . $explodedRequest[1] . '\\Services\\' . $model . 'Service';
+
+        $modelService = new ReflectionClass($service);
+        $availableOperations = $modelService->getStaticProperties();
+
+        $arrayKeys = array_keys($availableOperations);
+
+        if(array_key_exists('availableOperations', $availableOperations))
+            $ops = $availableOperations['availableOperations'];
+        else
+            $ops = [];
+
+        $operations = [];
+
+        foreach ($ops as $op) {
+            $method = new ReflectionMethod($service, $op);
+
+            $operations[$op] = [
+                'name'  =>  $op,
+                'description'   =>  self::stripComment($method->getDocComment())
+            ];
+
+            $params = $method->getParameters();
+
+            foreach ($params as $param) {
+//                dump($param);
+                $operations[$op]['parameters'] = [
+                    'object'  =>  $param->name,
+                    'parameter' =>  $param->name,
+                    'hint'  =>  isset($param->typeHint) ? $param->typeHint : 'null'
+                ];
+            }
+        }
+
+        return $operations;
     }
 
     public static function generate($module = []) {
