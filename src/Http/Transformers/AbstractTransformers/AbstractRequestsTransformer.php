@@ -20,7 +20,7 @@ class AbstractRequestsTransformer extends AbstractTransformer
      */
     public function transform(Requests $model)
     {
-                
+            
         return $this->buildPayload(
             [
             'id'  =>  $model->uuid,
@@ -35,13 +35,19 @@ class AbstractRequestsTransformer extends AbstractTransformer
             'search_filters'  =>  $model->search_filters,
             'requests'  =>  $model->requests,
             'returns'  =>  $model->returns,
-            'created_at'  =>  $model->created_at,
-            'updated_at'  =>  $model->updated_at,
-            'deleted_at'  =>  $model->deleted_at,
+            'linked_objects'  =>  $model->linked_objects,
+            'created_at'  =>  $model->created_at ? $model->created_at->toIso8601String() : null,
+            'updated_at'  =>  $model->updated_at ? $model->updated_at->toIso8601String() : null,
+            'deleted_at'  =>  $model->deleted_at ? $model->deleted_at->toIso8601String() : null,
             ]
         );
     }
-    
-    // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE\n\n
+
+    // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE\n\n\n\n\n\n\n\n\n\n\n\n
+
+
+
+
+
 
 }

@@ -24,7 +24,8 @@ class RequestsCreateRequest extends AbstractFormRequest
         'search_filters'         => 'nullable|string',
         'requests'               => 'nullable|string',
         'returns'                => 'nullable|string',
+        'linked_objects'         => 'nullable',
         ];
     }
-    // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE\n\n
+    // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE\n\n\n\n\n\n\n\n\n\n\n\n
 }

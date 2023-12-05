@@ -7,10 +7,12 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use NextDeveloper\Options\Database\Models\Requests;
 use ReflectionClass;
+use ReflectionException;
 use ReflectionMethod;
 
 class OptionsService
 {
+
     public static function getOptions($route) {
         if(Str::startsWith($route, '/')) {
             //  We are removing the slash in the begining
@@ -38,6 +40,9 @@ class OptionsService
         $data['uri'] =   $options ? $options['uri'] : 'No direct request can be sent to this URI';
         $data['description']    =   $options ? $options['controller_description']: 'There is no direct request to this URI thus no description.';
         $data['directories']    =   self::getDirectories($route);
+
+        if(!$options)
+            return [];
 
         $data['availableOperations'] = self::getAvailableOperations($options);
 
@@ -82,7 +87,12 @@ class OptionsService
 
         $service = $explodedRequest[0] . '\\' . $explodedRequest[1] . '\\Services\\' . $model . 'Service';
 
-        $modelService = new ReflectionClass($service);
+        try {
+            $modelService = new ReflectionClass($service);
+        } catch (ReflectionException $exception) {
+            return [];
+        }
+
         $availableOperations = $modelService->getStaticProperties();
 
         $arrayKeys = array_keys($availableOperations);
@@ -209,6 +219,8 @@ class OptionsService
                 $newRoute->requests = self::syncRequests($controller, $controllerWithMethod[1], $implodedRoute);
                 $newRoute->returns = self::syncReturns($controller, $controllerWithMethod[1]);
                 $newRoute->save();
+
+                self::getLinkedObjects($newRoute->uri);
 
                 // Route URL'lerini bir array'a topluyoruz, daha sonra database ile karşılaştırma yapmak üzere
 
@@ -704,6 +716,11 @@ class OptionsService
             }
         }
 
+        $linkedObjects = self::getLinkedObjects($dir);
+
+        if(!$linkedObjects)
+            return null;
+
         $foundDirs = array_merge(
             $foundDirs,
             self::getLinkedObjects($dir)
@@ -712,8 +729,11 @@ class OptionsService
         return $foundDirs;
     }
 
-    private static function getLinkedObjects($route) {
+    public static function getLinkedObjects($route) {
         $route = Requests::where('uri', $route)->first();
+
+        if(!$route)
+            return [];
 
         $explodedRoute = explode('/', $route->uri);
 
@@ -724,9 +744,14 @@ class OptionsService
 
         $modelName = $namespace . '\\' . $module . '\\Database\\Models\\' . Str::ucfirst(Str::camel($explodedRoute[1]));
 
-        $model = new ReflectionClass($modelName);
+        try {
+            $model = new ReflectionClass($modelName);
+        } catch (ReflectionException $exception) {
+            return null;
+        }
 
         $ourMethods = [];
+        $rawMethods = [];
 
         foreach ($model->getMethods() as $method) {
             if(
@@ -735,8 +760,23 @@ class OptionsService
             ) {
                 $ourMethod = str_replace('_', '-', Str::snake($method->name));
                 $ourMethods[] = ':object-id/' . $ourMethod;
+
+                $type = 'hasMany';
+
+                if( $method->getReturnType() == 'Illuminate\Database\Eloquent\Relations\BelongsTo' ) {
+                    $type = 'belongsTo';
+                }
+
+                $rawMethods[] = [
+                    'type'      =>  $type,
+                    'method'    =>  $ourMethod
+                ];
             }
         }
+
+        $route->update([
+            'linked_objects'    =>  $rawMethods
+        ]);
 
         return $ourMethods;
     }
