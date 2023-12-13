@@ -833,8 +833,6 @@ class OptionsService
             $timer->showDiff('ModelLoop Finish: ' . $i);
         }
 
-        dd($rawMethods);
-
         $route->update([
             'linked_objects'    =>  $rawMethods
         ]);
