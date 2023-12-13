@@ -2,9 +2,11 @@
 
 namespace NextDeveloper\Options\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use NextDeveloper\Commons\Common\Timer\Timer;
 use NextDeveloper\Options\Database\Models\Requests;
 use ReflectionClass;
 use ReflectionException;
@@ -12,7 +14,6 @@ use ReflectionMethod;
 
 class OptionsService
 {
-
     public static function getOptions($route) {
         if(Str::startsWith($route, '/')) {
             //  We are removing the slash in the begining
@@ -129,10 +130,13 @@ class OptionsService
 
     public static function generate($module = []) {
         // Tüm route bilgilerini alıyoruz
+        $timer = new Timer();
 
         $routes = Route::getRoutes();
         $savedAvailableRoutes = [];
         $count = 0;
+
+        $timer->showDiff('GotRoutes');
 
         foreach ($routes as $route) {
             try {
@@ -188,6 +192,8 @@ class OptionsService
                     continue;
                 }
 
+                $timer->showDiff('StartingDocumentationWithReflection');
+
                 $controllerInfo = new ReflectionClass($controller);
                 $commentDescription = str_replace("\n", "", self::stripComment($controllerInfo->getDocComment()));
 
@@ -195,6 +201,8 @@ class OptionsService
                 $actionDescription = str_replace("\n", "", self::stripComment($method->getDocComment()));
 
                 // Route daha önce kaydedilmemişse ediyoruz
+
+                $timer->showDiff('SavingTheRouteIfNotSaved');
 
                 $newRoute = Requests::withTrashed()->firstOrNew([
                     'uri' => $implodedRoute,
@@ -220,7 +228,12 @@ class OptionsService
                 $newRoute->returns = self::syncReturns($controller, $controllerWithMethod[1]);
                 $newRoute->save();
 
+                $timer->showDiff('SavedTheRoute');
+                $timer->showDiff('StartingToGetLinkedObjects');
+
                 self::getLinkedObjects($newRoute->uri);
+
+                $timer->showDiff('GotLinkedObjects');
 
                 // Route URL'lerini bir array'a topluyoruz, daha sonra database ile karşılaştırma yapmak üzere
 
@@ -237,6 +250,8 @@ class OptionsService
                 continue;
             }
         }
+
+        $timer->showDiff('CleanUpStarts');
 
         // Mevcut olmayan Route'ları bulup database'den siliyoruz
         $allRoutesFromDB = Requests::withTrashed()->select("uri", "method")->get();
@@ -730,7 +745,15 @@ class OptionsService
     }
 
     public static function getLinkedObjects($route) {
-        $route = Requests::where('uri', $route)->first();
+        $timer = new Timer();
+        Log::info('Running for uri: ' . $route);
+
+        $explodedRoute = explode('/', $route);
+
+        $route = Requests::where('uri', $explodedRoute[0] . '/' . $explodedRoute[1])
+            ->where('method', 'GET')
+            ->where('updated_at', '<=', Carbon::now()->subSecond(1)->toDateTimeString())
+            ->first();
 
         if(!$route)
             return [];
@@ -744,16 +767,48 @@ class OptionsService
 
         $modelName = $namespace . '\\' . $module . '\\Database\\Models\\' . Str::ucfirst(Str::camel($explodedRoute[1]));
 
+        $timer->showDiff('GotModelName');
+
         try {
             $model = new ReflectionClass($modelName);
         } catch (ReflectionException $exception) {
             return null;
         }
 
+        $timer->showDiff('IHaveTheReflectionModel');
+
         $ourMethods = [];
         $rawMethods = [];
 
-        foreach ($model->getMethods() as $method) {
+        $i = 0;
+
+        $methods = $model->getMethods(ReflectionMethod::IS_PUBLIC);
+
+        foreach ($methods as $method) {
+            $timer->showDiff('ModelLoop PreStarts ' . $i . ' Times');
+
+            $i++;
+
+            if($i > 288)
+                $a = 1;
+
+            if($method->getReturnType() == null) {
+                Log::info('[OptionsService@getLinkedObjects] Return type is null. Continue;');
+                continue;
+            }
+            //  Relational functions cannot be public static, that is why we pass this.
+            if($method->getModifiers() == 17) {
+                Log::info('[OptionsService@getLinkedObjects] Function is public static, it should be public. Continue;');
+                continue;
+            }
+
+            if($method->class != $modelName) {
+                Log::info('[OptionsService@getLinkedObjects] Class is another class. Continue;');
+                continue;
+            }
+
+            $timer->showDiff('ModelLoop Starts');
+
             if(
                 $method->getReturnType() == 'Illuminate\Database\Eloquent\Relations\BelongsTo' ||
                 $method->getReturnType() == 'Illuminate\Database\Eloquent\Relations\HasMany'
@@ -769,10 +824,16 @@ class OptionsService
 
                 $rawMethods[] = [
                     'type'      =>  $type,
-                    'method'    =>  $ourMethod
+                    'method'    =>  $ourMethod,
+                    'module'    =>  $module,
+                    'model'     =>  Str::camel($explodedRoute[1])
                 ];
             }
+
+            $timer->showDiff('ModelLoop Finish: ' . $i);
         }
+
+        dd($rawMethods);
 
         $route->update([
             'linked_objects'    =>  $rawMethods
