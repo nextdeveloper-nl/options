@@ -752,7 +752,7 @@ class OptionsService
 
         $route = Requests::where('uri', $explodedRoute[0] . '/' . $explodedRoute[1])
             ->where('method', 'GET')
-            ->where('updated_at', '<=', Carbon::now()->subSecond(1)->toDateTimeString())
+            ->where('updated_at', '<=', Carbon::now()->subSecond(15)->toDateTimeString())
             ->first();
 
         if(!$route)
