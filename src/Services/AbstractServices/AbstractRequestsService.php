@@ -17,7 +17,8 @@ use NextDeveloper\Options\Events\Requests\RequestsUpdatedEvent;
 use NextDeveloper\Options\Events\Requests\RequestsUpdatingEvent;
 use NextDeveloper\Options\Events\Requests\RequestsDeletedEvent;
 use NextDeveloper\Options\Events\Requests\RequestsDeletingEvent;
-
+use NextDeveloper\Commons\Exceptions\ModelNotFoundException;
+use NextDeveloper\Events\Services\Events;
 
 /**
  * This class is responsible from managing the data for Requests
@@ -97,6 +98,31 @@ class AbstractRequestsService
     }
 
     /**
+     * This method returns the sub objects of the related models
+     *
+     * @param  $uuid
+     * @param  $object
+     * @return void
+     * @throws \Laravel\Octane\Exceptions\DdException
+     */
+    public static function relatedObjects($uuid, $object)
+    {
+        try {
+            $obj = Requests::where('uuid', $uuid)->first();
+
+            if(!$obj) {
+                throw new ModelNotFoundException('Cannot find the related model');
+            }
+
+            if($obj) {
+                return $obj->$object;
+            }
+        } catch (\Exception $e) {
+            dd($e);
+        }
+    }
+
+    /**
      * This method created the model from an array.
      *
      * Throws an exception if stuck with any problem.
@@ -107,25 +133,31 @@ class AbstractRequestsService
      */
     public static function create(array $data)
     {
-        event(new RequestsCreatingEvent());
+        
+        if(!array_key_exists('iam_account_id', $data)) {
+            $data['iam_account_id'] = UserHelper::currentAccount()->id;
+        }
 
-                
+        if(!array_key_exists('iam_user_id', $data)) {
+            $data['iam_user_id']    = UserHelper::me()->id;
+        }
+
         try {
             $model = Requests::create($data);
         } catch(\Exception $e) {
             throw $e;
         }
 
-        event(new RequestsCreatedEvent($model));
+        Events::fire('created:NextDeveloper\Options\Requests', $model);
 
         return $model->fresh();
     }
 
     /**
-     This function expects the ID inside the object.
-    
-     @param  array $data
-     @return Requests
+     * This function expects the ID inside the object.
+     *
+     * @param  array $data
+     * @return Requests
      */
     public static function updateRaw(array $data) : ?Requests
     {
@@ -151,7 +183,7 @@ class AbstractRequestsService
         $model = Requests::where('uuid', $id)->first();
 
         
-        event(new RequestsUpdatingEvent($model));
+        Events::fire('updating:NextDeveloper\Options\Requests', $model);
 
         try {
             $isUpdated = $model->update($data);
@@ -160,7 +192,7 @@ class AbstractRequestsService
             throw $e;
         }
 
-        event(new RequestsUpdatedEvent($model));
+        Events::fire('updated:NextDeveloper\Options\Requests', $model);
 
         return $model->fresh();
     }
@@ -175,19 +207,17 @@ class AbstractRequestsService
      * @return mixed
      * @throw  Exception
      */
-    public static function delete($id, array $data)
+    public static function delete($id)
     {
         $model = Requests::where('uuid', $id)->first();
 
-        event(new RequestsDeletingEvent());
+        Events::fire('deleted:NextDeveloper\Options\Requests', $model);
 
         try {
             $model = $model->delete();
         } catch(\Exception $e) {
             throw $e;
         }
-
-        event(new RequestsDeletedEvent($model));
 
         return $model;
     }

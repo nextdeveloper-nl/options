@@ -231,7 +231,7 @@ class OptionsService
                 $timer->showDiff('SavedTheRoute');
                 $timer->showDiff('StartingToGetLinkedObjects');
 
-                self::getLinkedObjects($newRoute->uri);
+                //self::getLinkedObjects($newRoute->uri);
 
                 $timer->showDiff('GotLinkedObjects');
 
@@ -731,14 +731,15 @@ class OptionsService
             }
         }
 
-        $linkedObjects = self::getLinkedObjects($dir);
+        $linkedObjects = Requests::where('uri', 'like', $dir . '%')->first();
+        $linkedObjects = $linkedObjects->linked_objects;
 
         if(!$linkedObjects)
             return null;
 
         $foundDirs = array_merge(
             $foundDirs,
-            self::getLinkedObjects($dir)
+            //self::getLinkedObjects($dir)
         );
 
         return $foundDirs;

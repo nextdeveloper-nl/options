@@ -12,9 +12,26 @@ use NextDeveloper\Commons\Common\Cache\Traits\CleanCache;
 use NextDeveloper\Commons\Database\Traits\Taggable;
 
 /**
- * Class Requests.
+ * Requests model.
  *
- * @package NextDeveloper\Options\Database\Models
+ * @package  NextDeveloper\Options\Database\Models
+ * @property integer $id
+ * @property string $uuid
+ * @property string $uri
+ * @property string $method
+ * @property string $controller
+ * @property string $topic
+ * @property string $controller_description
+ * @property $action
+ * @property string $action_description
+ * @property $middleware
+ * @property $search_filters
+ * @property $requests
+ * @property $returns
+ * @property $linked_objects
+ * @property \Carbon\Carbon $created_at
+ * @property \Carbon\Carbon $updated_at
+ * @property \Carbon\Carbon $deleted_at
  */
 class Requests extends Model
 {
@@ -31,6 +48,21 @@ class Requests extends Model
      @var array
      */
     protected $guarded = [];
+
+    protected $fillable = [
+            'uri',
+            'method',
+            'controller',
+            'topic',
+            'controller_description',
+            'action',
+            'action_description',
+            'middleware',
+            'search_filters',
+            'requests',
+            'returns',
+            'linked_objects',
+    ];
 
     /**
       Here we have the fulltext fields. We can use these for fulltext search if enabled.
@@ -52,22 +84,21 @@ class Requests extends Model
      @var array
      */
     protected $casts = [
-    'id'                     => 'integer',
-    'uuid'                   => 'string',
-    'uri'                    => 'string',
-    'method'                 => 'string',
-    'controller'             => 'string',
-    'topic'                  => 'string',
+    'id' => 'integer',
+    'uri' => 'string',
+    'method' => 'string',
+    'controller' => 'string',
+    'topic' => 'string',
     'controller_description' => 'string',
-    'action'                 => 'string',
-    'action_description'     => 'string',
-    'middleware'             => 'string',
-    'search_filters'         => 'string',
-    'requests'               => 'string',
-    'returns'                => 'string',
-    'created_at'             => 'datetime',
-    'updated_at'             => 'datetime',
-    'deleted_at'             => 'datetime',
+    'action_description' => 'string',
+    'middleware' => 'array',
+    'search_filters' => 'array',
+    'requests' => 'array',
+    'returns' => 'array',
+    'linked_objects' => 'array',
+    'created_at' => 'datetime',
+    'updated_at' => 'datetime',
+    'deleted_at' => 'datetime',
     ];
 
     /**
@@ -129,6 +160,20 @@ class Requests extends Model
     }
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

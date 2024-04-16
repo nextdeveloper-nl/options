@@ -4,7 +4,7 @@ namespace NextDeveloper\Options\Http\Controllers\Requests;
 
 use Illuminate\Http\Request;
 use NextDeveloper\Options\Http\Controllers\AbstractController;
-use NextDeveloper\Generator\Http\Traits\ResponsableFactory;
+use NextDeveloper\Commons\Http\Traits\Responsable;
 use NextDeveloper\Options\Http\Requests\Requests\RequestsUpdateRequest;
 use NextDeveloper\Options\Database\Filters\RequestsQueryFilter;
 use NextDeveloper\Options\Services\RequestsService;
@@ -12,6 +12,8 @@ use NextDeveloper\Options\Http\Requests\Requests\RequestsCreateRequest;
 
 class RequestsController extends AbstractController
 {
+    use Responsable;
+
     /**
      * This method returns the list of requests.
      *

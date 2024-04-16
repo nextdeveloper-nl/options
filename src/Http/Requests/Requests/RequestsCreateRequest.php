@@ -13,18 +13,18 @@ class RequestsCreateRequest extends AbstractFormRequest
     public function rules()
     {
         return [
-            'uri'                    => 'required|string|max:500',
-        'method'                 => 'required|string|max:500',
-        'controller'             => 'required|string|max:500',
-        'topic'                  => 'nullable|string|max:500',
+            'uri' => 'required|string',
+        'method' => 'required|string',
+        'controller' => 'required|string',
+        'topic' => 'nullable|string',
         'controller_description' => 'nullable|string',
-        'action'                 => 'required|string|max:500',
-        'action_description'     => 'nullable|string',
-        'middleware'             => 'nullable|string',
-        'search_filters'         => 'nullable|string',
-        'requests'               => 'nullable|string',
-        'returns'                => 'nullable|string',
-        'linked_objects'         => 'nullable',
+        'action' => 'required',
+        'action_description' => 'nullable|string',
+        'middleware' => 'nullable',
+        'search_filters' => 'nullable',
+        'requests' => 'nullable',
+        'returns' => 'nullable',
+        'linked_objects' => 'nullable',
         ];
     }
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE\n\n\n\n\n\n\n\n\n\n\n\n

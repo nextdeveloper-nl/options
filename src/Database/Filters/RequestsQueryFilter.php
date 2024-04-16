@@ -42,34 +42,9 @@ class RequestsQueryFilter extends AbstractQueryFilter
         return $this->builder->where('controller_description', 'like', '%' . $value . '%');
     }
     
-    public function action($value)
-    {
-        return $this->builder->where('action', 'like', '%' . $value . '%');
-    }
-    
     public function actionDescription($value)
     {
         return $this->builder->where('action_description', 'like', '%' . $value . '%');
-    }
-    
-    public function middleware($value)
-    {
-        return $this->builder->where('middleware', 'like', '%' . $value . '%');
-    }
-    
-    public function searchFilters($value)
-    {
-        return $this->builder->where('search_filters', 'like', '%' . $value . '%');
-    }
-    
-    public function requests($value)
-    {
-        return $this->builder->where('requests', 'like', '%' . $value . '%');
-    }
-    
-    public function returns($value)
-    {
-        return $this->builder->where('returns', 'like', '%' . $value . '%');
     }
 
     public function createdAtStart($date) 

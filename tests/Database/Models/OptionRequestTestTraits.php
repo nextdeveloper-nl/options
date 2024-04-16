@@ -63,12 +63,7 @@ trait OptionRequestTestTraits
                 'controller'  =>  'a',
                 'topic'  =>  'a',
                 'controller_description'  =>  'a',
-                'action'  =>  'a',
                 'action_description'  =>  'a',
-                'middleware'  =>  'a',
-                'search_filters'  =>  'a',
-                'requests'  =>  'a',
-                'returns'  =>  'a',
                             ],
                 ['http_errors' => false]
             ]
@@ -446,107 +441,12 @@ trait OptionRequestTestTraits
         $this->assertTrue(true);
     }
 
-    public function test_optionrequest_event_action_filter()
-    {
-        try {
-            $request = new Request(
-                [
-                'action'  =>  'a'
-                ]
-            );
-
-            $filter = new OptionRequestQueryFilter($request);
-
-            $model = \NextDeveloper\Options\Database\Models\OptionRequest::filter($filter)->first();
-        } catch (\Exception $e) {
-            $this->assertFalse(false, $e->getMessage());
-        }
-
-        $this->assertTrue(true);
-    }
-
     public function test_optionrequest_event_action_description_filter()
     {
         try {
             $request = new Request(
                 [
                 'action_description'  =>  'a'
-                ]
-            );
-
-            $filter = new OptionRequestQueryFilter($request);
-
-            $model = \NextDeveloper\Options\Database\Models\OptionRequest::filter($filter)->first();
-        } catch (\Exception $e) {
-            $this->assertFalse(false, $e->getMessage());
-        }
-
-        $this->assertTrue(true);
-    }
-
-    public function test_optionrequest_event_middleware_filter()
-    {
-        try {
-            $request = new Request(
-                [
-                'middleware'  =>  'a'
-                ]
-            );
-
-            $filter = new OptionRequestQueryFilter($request);
-
-            $model = \NextDeveloper\Options\Database\Models\OptionRequest::filter($filter)->first();
-        } catch (\Exception $e) {
-            $this->assertFalse(false, $e->getMessage());
-        }
-
-        $this->assertTrue(true);
-    }
-
-    public function test_optionrequest_event_search_filters_filter()
-    {
-        try {
-            $request = new Request(
-                [
-                'search_filters'  =>  'a'
-                ]
-            );
-
-            $filter = new OptionRequestQueryFilter($request);
-
-            $model = \NextDeveloper\Options\Database\Models\OptionRequest::filter($filter)->first();
-        } catch (\Exception $e) {
-            $this->assertFalse(false, $e->getMessage());
-        }
-
-        $this->assertTrue(true);
-    }
-
-    public function test_optionrequest_event_requests_filter()
-    {
-        try {
-            $request = new Request(
-                [
-                'requests'  =>  'a'
-                ]
-            );
-
-            $filter = new OptionRequestQueryFilter($request);
-
-            $model = \NextDeveloper\Options\Database\Models\OptionRequest::filter($filter)->first();
-        } catch (\Exception $e) {
-            $this->assertFalse(false, $e->getMessage());
-        }
-
-        $this->assertTrue(true);
-    }
-
-    public function test_optionrequest_event_returns_filter()
-    {
-        try {
-            $request = new Request(
-                [
-                'returns'  =>  'a'
                 ]
             );
 
