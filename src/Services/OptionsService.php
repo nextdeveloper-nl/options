@@ -732,10 +732,11 @@ class OptionsService
         }
 
         $linkedObjects = Requests::where('uri', 'like', $dir . '%')->first();
-        $linkedObjects = $linkedObjects->linked_objects;
 
         if(!$linkedObjects)
             return null;
+
+        $linkedObjects = $linkedObjects->linked_objects;
 
         $foundDirs = array_merge(
             $foundDirs,
