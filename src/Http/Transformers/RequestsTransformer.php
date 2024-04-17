@@ -23,15 +23,19 @@ class RequestsTransformer extends AbstractRequestsTransformer
      */
     public function transform(Requests $model)
     {
-        $transformed = Cache::get(
-            CacheHelper::getKey('Requests', $model->uuid, 'Transformed')
-        );
+        $transformed = null;
+//        Cache::get(
+//            CacheHelper::getKey('Requests', $model->uuid, 'Transformed')
+//        );
 
         if($transformed) {
             return $transformed;
         }
 
         $transformed = parent::transform($model);
+
+        unset($transformed['controller']);
+        unset($transformed['middleware']);
 
         Cache::set(
             CacheHelper::getKey('Requests', $model->uuid, 'Transformed'),

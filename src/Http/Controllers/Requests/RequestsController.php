@@ -3,6 +3,7 @@
 namespace NextDeveloper\Options\Http\Controllers\Requests;
 
 use Illuminate\Http\Request;
+use NextDeveloper\Commons\Http\Response\ResponsableFactory;
 use NextDeveloper\Options\Http\Controllers\AbstractController;
 use NextDeveloper\Commons\Http\Traits\Responsable;
 use NextDeveloper\Options\Http\Requests\Requests\RequestsUpdateRequest;
