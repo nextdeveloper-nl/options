@@ -8,9 +8,13 @@ use NextDeveloper\Options\Services\DeprecationService;
 
 class PostmanService
 {
-    public static function generate(): array
+    public static function generate(?string $module = null): array
     {
-        $routes = Requests::all();
+        $query = Requests::query();
+        if ($module) {
+            $query->where('topic', $module);
+        }
+        $routes = $query->get();
 
         $grouped = $routes->groupBy('topic');
 

@@ -297,9 +297,13 @@ class OptionsService
         }
     }
 
-    public static function createJSON(): string
+    public static function createJSON(?string $module = null): string
     {
-        $routes = Requests::all();
+        $query = Requests::query();
+        if ($module) {
+            $query->where('topic', $module);
+        }
+        $routes = $query->get();
 
         $tags = $routes->pluck('topic')->unique()->filter()->values()->map(fn($t) => ['name' => $t])->toArray();
 

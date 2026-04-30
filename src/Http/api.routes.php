@@ -25,6 +25,7 @@ Route::prefix('options')->group(
         // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
         Route::get('sync', 'SyncController@sync');
 
+        Route::get('modules', 'OpenApiController@modules');
         Route::get('postman', 'PostmanController@collection');
         Route::get('changelog', 'ChangelogController@index');
         Route::get('changelog/route', 'ChangelogController@forRoute');
