@@ -2,8 +2,8 @@
 
 namespace NextDeveloper\Options\Http\Transformers\AbstractTransformers;
 
-use NextDeveloper\Options\Database\Models\Requests;
 use NextDeveloper\Commons\Http\Transformers\AbstractTransformer;
+use NextDeveloper\Options\Database\Models\Requests;
 
 /**
  * Class RequestsTransformer. This class is being used to manipulate the data we are serving to the customer
@@ -20,7 +20,7 @@ class AbstractRequestsTransformer extends AbstractTransformer
      */
     public function transform(Requests $model)
     {
-            
+
         return $this->buildPayload(
             [
             'id'  =>  $model->uuid,

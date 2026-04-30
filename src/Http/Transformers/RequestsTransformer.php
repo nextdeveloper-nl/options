@@ -5,7 +5,6 @@ namespace NextDeveloper\Options\Http\Transformers;
 use Illuminate\Support\Facades\Cache;
 use NextDeveloper\Commons\Common\Cache\CacheHelper;
 use NextDeveloper\Options\Database\Models\Requests;
-use NextDeveloper\Commons\Http\Transformers\AbstractTransformer;
 use NextDeveloper\Options\Http\Transformers\AbstractTransformers\AbstractRequestsTransformer;
 
 /**
@@ -42,6 +41,6 @@ class RequestsTransformer extends AbstractRequestsTransformer
             $transformed
         );
 
-        return parent::transform($model);
+        return $transformed;
     }
 }

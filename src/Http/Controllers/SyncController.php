@@ -9,7 +9,8 @@ class SyncController
     public function sync() {
         //  Gets the name of the module to sync
         OptionsService::generate([
-            'NextDeveloper'
+            'NextDeveloper',
+            'App',
         ]);
     }
 }

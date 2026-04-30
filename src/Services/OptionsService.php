@@ -128,8 +128,7 @@ class OptionsService
         return $operations;
     }
 
-    public static function generate($module = []) {
-        // Tüm route bilgilerini alıyoruz
+    public static function generate($module = [], callable $onProgress = null) {
         $timer = new Timer();
 
         $routes = Route::getRoutes();
@@ -139,6 +138,9 @@ class OptionsService
         $timer->showDiff('GotRoutes');
 
         foreach ($routes as $route) {
+            if(!array_key_exists('controller', $route->action))
+                continue;
+
             try {
                 if (!isset($route->action["controller"])) {
                     logger()->info('No controller info found for URL : '. $route->uri);
@@ -147,22 +149,11 @@ class OptionsService
 
                 if($module) {
                     if(!Str::startsWith($route->action['controller'], $module)) {
-                        Log::info('[OptionsService@generate] Not the controller we want. Skipping this controller:'
-                            . ' ' . $route->action['controller']);
+                        Log::debug('[OptionsService@generate] Skipping controller: ' . $route->action['controller']);
                         continue;
                     }
                 }
 
-                /**
-                 * Here since we have a standart we split the uri like this;
-                 * 0: module
-                 * 1: object
-                 * 2: id of object
-                 * 3: related object for id
-                 *
-                 * However we may have changed in general, so we create a generic parser and convert the variable
-                 * to :object-id text
-                 */
                 $explodedRoute = explode('/', $route->uri);
 
                 $implodedRoute = '';
@@ -178,29 +169,32 @@ class OptionsService
                 $controllerWithMethod = explode("@", $route->action["controller"]);
                 $controller = $controllerWithMethod[0];
 
-                // Skip and log the route when controller could not be found
-
                 if (!class_exists($controller)) {
                     logger()->info('Class could not be found : ' . $controller . ' - Route :' . $implodedRoute);
+                    if ($onProgress) $onProgress('skip', $route->methods[0], $implodedRoute, 'class not found');
                     continue;
                 }
 
-                // Skip and log the route when method could not be found
-
                 if (!method_exists($controller, $controllerWithMethod[1])) {
                     logger()->info('Method could not be found : ' . $controller . '@' .$controllerWithMethod[1] . ' - Route :' . $implodedRoute);
+                    if ($onProgress) $onProgress('skip', $route->methods[0], $implodedRoute, 'method not found');
                     continue;
                 }
 
                 $timer->showDiff('StartingDocumentationWithReflection');
 
                 $controllerInfo = new ReflectionClass($controller);
-                $commentDescription = str_replace("\n", "", self::stripComment($controllerInfo->getDocComment()));
+                $docComment = $controllerInfo->getDocComment();
+                if ($docComment) {
+                    $commentDescription = str_replace("\n", "", self::stripComment($docComment));
+                } else {
+                    $shortName = preg_replace('/Controller$/', '', $controllerInfo->getShortName());
+                    $commentDescription = trim(implode(' ', preg_split('/(?=[A-Z])/', $shortName)));
+                }
 
                 $method = new ReflectionMethod($controller, $controllerWithMethod[1]);
-                $actionDescription = str_replace("\n", "", self::stripComment($method->getDocComment()));
-
-                // Route daha önce kaydedilmemişse ediyoruz
+                $methodDocComment = $method->getDocComment();
+                $actionDescription = $methodDocComment ? str_replace("\n", "", self::stripComment($methodDocComment)) : '';
 
                 $timer->showDiff('SavingTheRouteIfNotSaved');
 
@@ -213,15 +207,20 @@ class OptionsService
                     $newRoute->restore();
                 }
 
+                $explodedController = explode('\\', $controller);
+                $topic = $explodedController[0] === 'App'
+                    ? ($explodedController[3] ?? '')
+                    : ($explodedController[1] ?? '');
+
                 $newRoute->method = $route->methods[0];
                 $newRoute->controller = $controller;
-                $newRoute->topic = '';
+                $newRoute->topic = $topic;
                 $newRoute->controller_description = $commentDescription;
                 $newRoute->action = $controllerWithMethod[1];
                 $newRoute->action_description = $actionDescription;
 
                 if(array_key_exists('middleware', $route->action))
-                    $newRoute->middleware = stripslashes(json_encode($route->action["middleware"], JSON_UNESCAPED_SLASHES));
+                    $newRoute->middleware = $route->action["middleware"];
 
                 $newRoute->search_filters = self::syncFilters($controller, $controllerWithMethod[1]);
                 $newRoute->requests = self::syncRequests($controller, $controllerWithMethod[1], $implodedRoute);
@@ -231,22 +230,19 @@ class OptionsService
                 $timer->showDiff('SavedTheRoute');
                 $timer->showDiff('StartingToGetLinkedObjects');
 
-                //self::getLinkedObjects($newRoute->uri);
+                self::getLinkedObjects($newRoute->uri);
 
                 $timer->showDiff('GotLinkedObjects');
-
-                // Route URL'lerini bir array'a topluyoruz, daha sonra database ile karşılaştırma yapmak üzere
 
                 $savedAvailableRoutes['routes'][$count]['uri'] = $implodedRoute;
                 $savedAvailableRoutes['routes'][$count]['method'] = $route->methods[0];
 
+                if ($onProgress) $onProgress('sync', $route->methods[0], $implodedRoute, null);
+
                 $count++;
             } catch (\Throwable $e) {
-                dump($e);
-                dump($controllerWithMethod);
-                dd($route);
-
                 logger()->info($e);
+                if ($onProgress) $onProgress('error', $route->methods[0] ?? '?', $route->uri ?? '?', $e->getMessage());
                 continue;
             }
         }
@@ -258,10 +254,9 @@ class OptionsService
 
         foreach ($allRoutesFromDB as $routeFromDB) {
 
-            // Database'deli route daha önce topladığımız arrayda mevcut mu kontrol ediyoruz
             $found = false;
 
-            foreach ($savedAvailableRoutes['routes'] as $route) {
+            foreach ($savedAvailableRoutes['routes'] ?? [] as $route) {
                 if ($route['uri']==$routeFromDB->uri && $route['method']==$routeFromDB->method) {
                     $found = true;
                 }
@@ -269,17 +264,17 @@ class OptionsService
 
             $route = Requests::withTrashed()->where("uri", $routeFromDB->uri)->where("method", $routeFromDB->method)->first();
 
-            if (!$found) {
-                if (!$route->trashed()) {
-                    $route->delete();
-                    logger()->info("Route was deleted: ". $routeFromDB->uri . " [". $routeFromDB->method ."]");
-                }
-            } else {
-                if ($route->trashed()) {
-                    $route->restore();
-                    logger()->info("Route was restored: ". $routeFromDB->uri . " [". $routeFromDB->method ."]");
-                }
-            }
+//            if (!$found) {
+//                if (!$route->trashed()) {
+//                    $route->delete();
+//                    logger()->info("Route is deleted: ". $routeFromDB->uri . " [". $routeFromDB->method ."]");
+//                }
+//            } else {
+//                if ($route->trashed()) {
+//                    $route->restore();
+//                    logger()->info("Route is restored: ". $routeFromDB->uri . " [". $routeFromDB->method ."]");
+//                }
+//            }
         }
     }
 
@@ -467,7 +462,7 @@ class OptionsService
 
         $data['values'] = [];
 
-        return json_encode($data);
+        return $data;
     }
 
     /**
@@ -503,7 +498,7 @@ class OptionsService
         if (empty($result)) {
             return null;
         } else {
-            return json_encode($result);
+            return $result;
         }
     }
 
@@ -577,7 +572,7 @@ class OptionsService
         if (empty($filtersFound)) {
             return null;
         } else {
-            return json_encode($filtersFound);
+            return $filtersFound;
         }
     }
 
@@ -691,7 +686,7 @@ class OptionsService
 
     private static function getDirectories($dir)
     {
-        $dirs = Requests::where('uri', 'like', $dir . '%')->get();
+        $dirs = Requests::where('uri', 'ilike', $dir . '%')->get();
 
         $foundDirs = [
             '.'
@@ -731,7 +726,7 @@ class OptionsService
             }
         }
 
-        $linkedObjects = Requests::where('uri', 'like', $dir . '%')->first();
+        $linkedObjects = Requests::where('uri', 'ilike', $dir . '%')->first();
 
         if(!$linkedObjects)
             return null;
@@ -791,9 +786,6 @@ class OptionsService
 
             $i++;
 
-            if($i > 288)
-                $a = 1;
-
             if($method->getReturnType() == null) {
                 Log::info('[OptionsService@getLinkedObjects] Return type is null. Continue;');
                 continue;
@@ -811,16 +803,18 @@ class OptionsService
 
             $timer->showDiff('ModelLoop Starts');
 
+            $returnTypeName = $method->getReturnType()->getName();
+
             if(
-                $method->getReturnType() == 'Illuminate\Database\Eloquent\Relations\BelongsTo' ||
-                $method->getReturnType() == 'Illuminate\Database\Eloquent\Relations\HasMany'
+                $returnTypeName === 'Illuminate\Database\Eloquent\Relations\BelongsTo' ||
+                $returnTypeName === 'Illuminate\Database\Eloquent\Relations\HasMany'
             ) {
                 $ourMethod = str_replace('_', '-', Str::snake($method->name));
                 $ourMethods[] = ':object-id/' . $ourMethod;
 
                 $type = 'hasMany';
 
-                if( $method->getReturnType() == 'Illuminate\Database\Eloquent\Relations\BelongsTo' ) {
+                if( $returnTypeName === 'Illuminate\Database\Eloquent\Relations\BelongsTo' ) {
                     $type = 'belongsTo';
                 }
 
@@ -828,7 +822,8 @@ class OptionsService
                     'type'      =>  $type,
                     'method'    =>  $ourMethod,
                     'module'    =>  $module,
-                    'model'     =>  Str::camel($explodedRoute[1])
+                    'model'     =>  Str::camel($explodedRoute[1]),
+                    'modelFullPath' =>  $modelName
                 ];
             }
 

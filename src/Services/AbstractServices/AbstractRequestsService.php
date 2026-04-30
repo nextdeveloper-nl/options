@@ -2,23 +2,14 @@
 
 namespace NextDeveloper\Options\Services\AbstractServices;
 
-use Illuminate\Http\Request;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Str;
-use NextDeveloper\IAM\Helpers\UserHelper;
-use NextDeveloper\Commons\Common\Cache\CacheHelper;
-use NextDeveloper\Commons\Helpers\DatabaseHelper;
-use NextDeveloper\Options\Database\Models\Requests;
-use NextDeveloper\Options\Database\Filters\RequestsQueryFilter;
-use NextDeveloper\Options\Events\Requests\RequestsCreatedEvent;
-use NextDeveloper\Options\Events\Requests\RequestsCreatingEvent;
-use NextDeveloper\Options\Events\Requests\RequestsUpdatedEvent;
-use NextDeveloper\Options\Events\Requests\RequestsUpdatingEvent;
-use NextDeveloper\Options\Events\Requests\RequestsDeletedEvent;
-use NextDeveloper\Options\Events\Requests\RequestsDeletingEvent;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Request;
 use NextDeveloper\Commons\Exceptions\ModelNotFoundException;
 use NextDeveloper\Events\Services\Events;
+use NextDeveloper\IAM\Helpers\UserHelper;
+use NextDeveloper\Options\Database\Filters\RequestsQueryFilter;
+use NextDeveloper\Options\Database\Models\Requests;
 
 /**
  * This class is responsible from managing the data for Requests
@@ -133,7 +124,7 @@ class AbstractRequestsService
      */
     public static function create(array $data)
     {
-        
+
         if(!array_key_exists('iam_account_id', $data)) {
             $data['iam_account_id'] = UserHelper::currentAccount()->id;
         }
@@ -182,7 +173,7 @@ class AbstractRequestsService
     {
         $model = Requests::where('uuid', $id)->first();
 
-        
+
         Events::fire('updating:NextDeveloper\Options\Requests', $model);
 
         try {

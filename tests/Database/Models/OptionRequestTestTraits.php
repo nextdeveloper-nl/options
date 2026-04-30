@@ -2,14 +2,13 @@
 
 namespace NextDeveloper\Options\Tests\Database\Models;
 
-use Tests\TestCase;
 use GuzzleHttp\Client;
-use Illuminate\Http\Response;
 use Illuminate\Http\Request;
-use NextDeveloper\Options\Database\Filters\OptionRequestQueryFilter;
-use NextDeveloper\Options\Services\AbstractServices\AbstractOptionRequestService;
+use Illuminate\Http\Response;
 use Illuminate\Pagination\LengthAwarePaginator;
 use League\Fractal\Resource\Collection;
+use NextDeveloper\Options\Database\Filters\OptionRequestQueryFilter;
+use NextDeveloper\Options\Services\AbstractServices\AbstractOptionRequestService;
 
 trait OptionRequestTestTraits
 {

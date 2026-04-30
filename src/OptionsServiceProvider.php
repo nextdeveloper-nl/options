@@ -2,11 +2,10 @@
 
 namespace NextDeveloper\Options;
 
-use GuzzleHttp\Client as GuzzleClient;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Route;
 use NextDeveloper\Commons\AbstractServiceProvider;
+use NextDeveloper\Options\Console\Commands\SyncOptionsCommand;
 use NextDeveloper\Options\Services\OptionsService;
 
 /**
@@ -39,7 +38,6 @@ class OptionsServiceProvider extends AbstractServiceProvider
         //        $this->bootErrorHandler();
         $this->bootChannelRoutes();
         $this->bootModelBindings();
-        $this->bootEvents();
         $this->bootLogger();
     }
 
@@ -94,24 +92,6 @@ class OptionsServiceProvider extends AbstractServiceProvider
     }
 
     /**
-     * @return void
-     */
-    protected function bootEvents()
-    {
-        $configs = config()->all();
-
-        foreach ($configs as $key => $value) {
-            if (config()->has($key.'.events')) {
-                foreach (config($key.'.events') as $event => $handlers) {
-                    foreach ($handlers as $handler) {
-                        $this->app['events']->listen($event, $handler);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
      * Register module routes
      *
      * @return void
@@ -139,7 +119,7 @@ class OptionsServiceProvider extends AbstractServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands(
                 [
-
+                    SyncOptionsCommand::class,
                 ]
             );
         }

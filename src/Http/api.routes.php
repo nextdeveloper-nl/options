@@ -2,6 +2,8 @@
 
 Route::prefix('options')->group(
     function () {
+        Route::get('/', 'OpenApiController@schema');
+
         Route::prefix('requests')->group(
             function () {
                 Route::get('/', 'Requests\RequestsController@index');

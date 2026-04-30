@@ -2,8 +2,8 @@
 
 namespace NextDeveloper\Options\EventHandlers\RequestsUpdatingEvent;
 
-use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Queue\InteractsWithQueue;
 
 /**
  * Class RequestsUpdatingEvent

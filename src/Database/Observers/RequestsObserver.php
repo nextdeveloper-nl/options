@@ -3,7 +3,6 @@
 namespace NextDeveloper\Options\Database\Observers;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
 
 /**
  * Class RequestsObserver
