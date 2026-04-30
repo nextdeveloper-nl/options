@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use NextDeveloper\Commons\Common\Timer\Timer;
 use NextDeveloper\Options\Database\Models\Requests;
+use NextDeveloper\Options\Services\ChangelogService;
+use NextDeveloper\Options\Services\DeprecationService;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
@@ -76,6 +78,14 @@ class OptionsService
                     break;
             }
         }
+
+        $deprecation = DeprecationService::get($route, $options->method ?? 'GET');
+        $data['deprecated'] = $deprecation ?: false;
+
+        foreach ($data['methods'] as $httpMethod => &$methodData) {
+            $methodData['curl'] = self::buildCurlSnippet($httpMethod, $route, $options);
+        }
+        unset($methodData);
 
         return $data;
     }
@@ -227,6 +237,15 @@ class OptionsService
                 $newRoute->returns = self::syncReturns($controller, $controllerWithMethod[1]);
                 $newRoute->save();
 
+                $changes = [];
+                if ($newRoute->wasChanged('search_filters')) $changes[] = 'search_filters';
+                if ($newRoute->wasChanged('requests')) $changes[] = 'requests';
+                if ($newRoute->wasChanged('returns')) $changes[] = 'returns';
+                if ($newRoute->wasChanged('middleware')) $changes[] = 'middleware';
+                if (!empty($changes)) {
+                    ChangelogService::record($implodedRoute, $route->methods[0], $changes);
+                }
+
                 $timer->showDiff('SavedTheRoute');
                 $timer->showDiff('StartingToGetLinkedObjects');
 
@@ -278,138 +297,123 @@ class OptionsService
         }
     }
 
-    public static function createJSON()
+    public static function createJSON(): string
     {
-        $routesForTags = Requests::get();
-        $routesForPaths = $routesForTags;
-        $json = array();
-        $tags = array();
+        $routes = Requests::all();
 
-        foreach ($routesForTags as $route) {
-            $controllerArray = explode('\\', $route->controller);
-            $tags[] = $controllerArray[1];
-        }
+        $tags = $routes->pluck('topic')->unique()->filter()->values()->map(fn($t) => ['name' => $t])->toArray();
 
-        $tags = array_unique($tags);
+        $paths = [];
+        foreach ($routes as $route) {
+            $path = '/' . str_replace(':object-id', '{id}', $route->uri);
+            $method = strtolower($route->method);
+            $topic = $route->controller ? (explode('\\', $route->controller)[1] ?? '') : '';
+            $middleware = $route->middleware ?? [];
 
-        $json['swagger'] = "2.0";
-        $json['info']['description'] = "fdsfds";
-        $json['info']['version'] = "1.0.0";
-        $json['info']['title'] = "PlusClouds API Documentation";
-        $json['info']['contact']['email'] = 'admin@pluslouds.com';
-        $json['host'] = "plusclouds.com";
-        $json['basePath'] = "/v2";
-
-        $count = 0;
-        foreach ($tags as $tag) {
-            $json['tags'][$count]['name'] = $tag;
-            $count++;
-        }
-
-        $json['schemes'][] = "https";
-
-        foreach ($routesForPaths as $route) {
-            $controllerArray = explode('\\', $route->controller);
-            $removeV2 = $route->uri;
-            $json['paths'][$removeV2][strtolower($route->method)]['tags'] = array($controllerArray[1]);
-            $json['paths'][$removeV2][strtolower($route->method)]['summary'] = array($route->action_description);
-            if (strpos($removeV2, '{') !== false) {
-                $json['paths'][$removeV2][strtolower($route->method)]['parameters'] = array();
-                $regex = '/{\K[^}]*(?=})/m';
-                preg_match_all($regex, $removeV2, $matches);
-                foreach ($matches[0] as $match) {
-                    $json['paths'][$removeV2][strtolower($route->method)]['parameters'][] = array('in'=>'path', 'name'=> $match, 'required' => true, 'schema'=>array('$ref'=>""));
-                }
+            $parameters = [];
+            if (str_contains($route->uri, ':object-id')) {
+                $parameters[] = ['in' => 'path', 'name' => 'id', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']];
             }
-            if (!is_null($route->requests)) {
-                $requests = json_decode($route->requests, true);
-                if (!empty($requests)) {
-                    if (!isset($json['paths'][$removeV2][strtolower($route->method)]['parameters'])) {
-                        $json['paths'][$removeV2][strtolower($route->method)]['parameters'] = array();
-                    }
-                    foreach ($requests[0] as $key => $item) {
-                        $required = false;
-                        if ((is_array($item) && in_array('required', $item))) {
-                            $required = true;
-                        }
-                        if (!is_array($item)) {
-                            $parameterArray = explode('|', $item);
-                            if (in_array("required", $parameterArray)) {
-                                $required = true;
-                            }
-                        }
-                        $json['paths'][$removeV2][strtolower($route->method)]['parameters'][] = array('in'=>'query', 'name'=> $key, 'required' => $required, 'schema'=>array('$ref'=>""));
-                    }
+            if ($route->method === 'GET' && $route->search_filters) {
+                foreach ($route->search_filters as $filter) {
+                    $parameters[] = [
+                        'in'          => 'query',
+                        'name'        => $filter['name'],
+                        'required'    => false,
+                        'description' => trim($filter['description'] ?? ''),
+                        'schema'      => ['type' => $filter['type'] ?? 'string'],
+                    ];
                 }
             }
 
-            $exludedRoutes = array(
+            $operation = [
+                'tags'        => [$topic ?: 'General'],
+                'summary'     => $route->action_description ?: '',
+                'operationId' => lcfirst(str_replace(' ', '', ucwords(str_replace(['/', ':object-id', '-'], ' ', $route->uri)))) . ucfirst($method),
+                'parameters'  => $parameters,
+                'responses'   => [
+                    '200' => ['description' => 'Successful operation'],
+                    '401' => ['description' => 'Unauthorized'],
+                    '403' => ['description' => 'Forbidden'],
+                    '404' => ['description' => 'Not Found'],
+                ],
+            ];
 
-            );
-
-            switch ($route->method) {
-
-                case "GET":
-
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['200']['description'] = 'successful operation';
-
-                    if (!in_array($removeV2, $exludedRoutes)) {
-                        $json['paths'][$removeV2][strtolower($route->method)]['responses']['401']['description'] = 'Unauthorized';
-                        $json['paths'][$removeV2][strtolower($route->method)]['responses']['403']['description'] = 'Forbidden';
-                    }
-
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['404']['description'] = 'Not Found';
-
-                    break;
-
-                case "POST":
-
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['200']['description'] = 'successful operation';
-
-                    if (!in_array($removeV2, $exludedRoutes)) {
-                        $json['paths'][$removeV2][strtolower($route->method)]['responses']['401']['description'] = 'Unauthorized';
-                        $json['paths'][$removeV2][strtolower($route->method)]['responses']['403']['description'] = 'Forbidden';
-                    }
-
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['404']['description'] = 'Not Found';
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['201']['description'] = 'Created';
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['422']['description'] = 'Unprocessable Entity';
-
-                    break;
-
-                case "PUT":
-
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['200']['description'] = 'successful operation';
-
-                    if (!in_array($removeV2, $exludedRoutes)) {
-                        $json['paths'][$removeV2][strtolower($route->method)]['responses']['401']['description'] = 'Unauthorized';
-                        $json['paths'][$removeV2][strtolower($route->method)]['responses']['403']['description'] = 'Forbidden';
-                    }
-
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['404']['description'] = 'Not Found';
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['422']['description'] = 'Unprocessable Entity';
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['204']['description'] = 'No Content';
-
-                    break;
-
-                case "DELETE":
-
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['200']['description'] = 'successful operation';
-
-                    if (!in_array($removeV2, $exludedRoutes)) {
-                        $json['paths'][$removeV2][strtolower($route->method)]['responses']['401']['description'] = 'Unauthorized';
-                        $json['paths'][$removeV2][strtolower($route->method)]['responses']['403']['description'] = 'Forbidden';
-                    }
-
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['404']['description'] = 'Not Found';
-                    $json['paths'][$removeV2][strtolower($route->method)]['responses']['204']['description'] = 'No Content';
-
-                    break;
-
+            if (in_array('auth:api', $middleware) || in_array('auth:sanctum', $middleware)) {
+                $operation['security'] = [['bearerAuth' => []]];
             }
+
+            if (DeprecationService::isDeprecated($route->uri, $route->method)) {
+                $operation['deprecated'] = true;
+            }
+
+            if (in_array($route->method, ['POST', 'PATCH', 'PUT']) && $route->requests) {
+                $fields = $route->requests[0] ?? [];
+                $properties = [];
+                $required = [];
+                foreach ($fields as $fieldName => $rules) {
+                    $rulesArr = is_array($rules) ? $rules : explode('|', $rules);
+                    $properties[$fieldName] = ['type' => 'string'];
+                    if (in_array('required', $rulesArr)) $required[] = $fieldName;
+                }
+                $operation['requestBody'] = [
+                    'required' => true,
+                    'content'  => [
+                        'application/json' => [
+                            'schema' => array_filter([
+                                'type'       => 'object',
+                                'properties' => $properties,
+                                'required'   => $required ?: null,
+                            ])
+                        ]
+                    ]
+                ];
+            }
+
+            $paths[$path][strtolower($route->method)] = $operation;
         }
 
-        return json_encode($json);
+        $spec = [
+            'openapi' => '3.0.3',
+            'info'    => [
+                'title'       => 'PlusClouds API',
+                'description' => 'Auto-generated API documentation',
+                'version'     => '1.0.0',
+                'contact'     => ['email' => 'admin@plusclouds.com'],
+            ],
+            'servers' => [
+                ['url' => config('app.url'), 'description' => 'Current environment'],
+            ],
+            'tags'   => $tags,
+            'paths'  => $paths,
+            'components' => [
+                'securitySchemes' => [
+                    'bearerAuth' => ['type' => 'http', 'scheme' => 'bearer', 'bearerFormat' => 'JWT'],
+                ],
+            ],
+        ];
+
+        return json_encode($spec, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+    }
+
+    private static function buildCurlSnippet(string $method, string $uri, ?Requests $options): string
+    {
+        $url = rtrim(config('app.url'), '/') . '/' . $uri;
+        $headers = "-H 'Accept: application/json'";
+
+        $middleware = $options ? ($options->middleware ?? []) : [];
+        if (in_array('auth:api', $middleware) || in_array('auth:sanctum', $middleware)) {
+            $headers .= " \\\n  -H 'Authorization: Bearer {token}'";
+        }
+
+        $body = '';
+        if (in_array($method, ['POST', 'PATCH', 'PUT']) && $options && $options->requests) {
+            $fields = $options->requests[0] ?? [];
+            $example = array_fill_keys(array_keys($fields), '');
+            $body = " \\\n  -H 'Content-Type: application/json' \\\n  -d '" . json_encode($example) . "'";
+        }
+
+        return "curl -X {$method} '{$url}' \\\n  {$headers}{$body}";
     }
 
     /**
