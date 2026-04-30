@@ -180,6 +180,15 @@ class OptionsService
                 $controllerWithMethod = explode("@", $route->action["controller"]);
                 $controller = $controllerWithMethod[0];
 
+                if (!class_exists($controller, false)) {
+                    $issue = self::findClassFileIssue($controller);
+                    if ($issue) {
+                        logger()->warning('[OptionsService@generate] Skipping ' . $controller . ' — ' . $issue);
+                        if ($onProgress) $onProgress('skip', $route->methods[0], $implodedRoute, $issue);
+                        continue;
+                    }
+                }
+
                 if (!class_exists($controller)) {
                     logger()->info('Class could not be found : ' . $controller . ' - Route :' . $implodedRoute);
                     if ($onProgress) $onProgress('skip', $route->methods[0], $implodedRoute, 'class not found');
@@ -442,6 +451,13 @@ class OptionsService
         }
 
         try {
+            if (!class_exists($transformer, false)) {
+                $issue = self::findClassFileIssue($transformer);
+                if ($issue) {
+                    Log::warning('[OptionsService@syncReturns] Skipping ' . $transformer . ' — ' . $issue);
+                    return null;
+                }
+            }
             $transformer = new ReflectionClass($transformer);
         } catch (\Exception $e) {
             return null;
@@ -555,9 +571,9 @@ class OptionsService
 
                 if (! array_key_exists($filterName, $filters)) {
                     if (!class_exists($filterName, false)) {
-                        $dupes = self::findDuplicateMethods($filterName);
-                        if (!empty($dupes)) {
-                            Log::warning('[OptionsService@syncFilters] Skipping ' . $filterName . ' — duplicate methods: ' . implode(', ', $dupes));
+                        $issue = self::findClassFileIssue($filterName);
+                        if ($issue) {
+                            Log::warning('[OptionsService@syncFilters] Skipping ' . $filterName . ' — ' . $issue);
                             continue;
                         }
                     }
@@ -592,7 +608,7 @@ class OptionsService
         }
     }
 
-    private static function findDuplicateMethods(string $className): array
+    private static function findClassFileIssue(string $className): ?string
     {
         $file = null;
 
@@ -604,23 +620,42 @@ class OptionsService
         }
 
         if (!$file || !file_exists($file)) {
-            return [];
+            return null;
         }
 
         $content = file_get_contents($file);
-        preg_match_all('/(?:public|protected|private)\s+(?:static\s+)?function\s+(\w+)\s*\(/i', $content, $matches);
 
+        // Duplicate method declarations
+        preg_match_all('/(?:public|protected|private)\s+(?:static\s+)?function\s+(\w+)\s*\(/i', $content, $methods);
         $seen = [];
-        $dupes = [];
-        foreach ($matches[1] as $method) {
+        foreach ($methods[1] as $method) {
             $key = strtolower($method);
             if (in_array($key, $seen)) {
-                $dupes[] = $method;
+                return "duplicate method declaration: {$method}()";
             }
             $seen[] = $key;
         }
 
-        return $dupes;
+        // Conflicting use imports (same short name imported twice)
+        preg_match_all('/^use\s+([\w\\\\]+)(?:\s+as\s+(\w+))?\s*;/m', $content, $uses, PREG_SET_ORDER);
+        $importedNames = [];
+        foreach ($uses as $use) {
+            $fqcn  = $use[1];
+            $alias = $use[2] ?? (str_contains($fqcn, '\\') ? substr($fqcn, strrpos($fqcn, '\\') + 1) : $fqcn);
+            if (in_array($alias, $importedNames)) {
+                return "conflicting use import: {$alias}";
+            }
+            $importedNames[] = $alias;
+        }
+
+        return null;
+    }
+
+    /** @deprecated Use findClassFileIssue instead */
+    private static function findDuplicateMethods(string $className): array
+    {
+        $issue = self::findClassFileIssue($className);
+        return $issue ? [$issue] : [];
     }
 
     public static function stripComment($comment)
