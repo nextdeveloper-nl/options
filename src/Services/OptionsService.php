@@ -648,6 +648,71 @@ class OptionsService
             $importedNames[] = $alias;
         }
 
+        // Incompatible method signatures (child overrides parent with different param count)
+        if (preg_match('/^class\s+\w+\s+extends\s+([\w\\\\]+)/m', $content, $extMatch)) {
+            $parentShort = trim($extMatch[1]);
+
+            // Resolve short name to FQCN via use imports collected above
+            $parentFqcn = $parentShort;
+            foreach ($uses as $use) {
+                $fqcn  = $use[1];
+                $alias = $use[2] ?? (str_contains($fqcn, '\\') ? substr($fqcn, strrpos($fqcn, '\\') + 1) : $fqcn);
+                if ($alias === $parentShort) {
+                    $parentFqcn = $fqcn;
+                    break;
+                }
+            }
+
+            // Only check if the parent is already loaded — avoids triggering autoload
+            if (class_exists($parentFqcn, false)) {
+                try {
+                    $parentRef = new \ReflectionClass($parentFqcn);
+
+                    // Extract child method signatures from source via regex
+                    preg_match_all(
+                        '/(?:public|protected)\s+(?:static\s+)?function\s+(\w+)\s*\(([^)]*)\)/i',
+                        $content,
+                        $childMethods,
+                        PREG_SET_ORDER
+                    );
+
+                    foreach ($childMethods as $cm) {
+                        $methodName = $cm[1];
+                        $paramStr   = trim($cm[2]);
+
+                        if (!$parentRef->hasMethod($methodName)) {
+                            continue;
+                        }
+
+                        $parentMethod = $parentRef->getMethod($methodName);
+
+                        // Count required (non-optional) params in the parent
+                        $parentRequired = 0;
+                        foreach ($parentMethod->getParameters() as $p) {
+                            if (!$p->isOptional()) {
+                                $parentRequired++;
+                            }
+                        }
+                        $parentTotal = $parentMethod->getNumberOfParameters();
+
+                        // Count params declared in the child source
+                        $childParamCount = $paramStr === '' ? 0 : count(array_filter(
+                            preg_split('/,(?![^<>]*>)/', $paramStr),
+                            fn($p) => trim($p) !== ''
+                        ));
+
+                        // Child declares fewer params than the parent requires → incompatible
+                        if ($childParamCount < $parentRequired) {
+                            return "incompatible method signature: {$methodName}() "
+                                . "overrides parent with {$parentTotal} param(s) but child declares {$childParamCount}";
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Reflection failed — skip this check
+                }
+            }
+        }
+
         return null;
     }
 
