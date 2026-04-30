@@ -3,6 +3,7 @@
 namespace NextDeveloper\Options\Services;
 
 use Carbon\Carbon;
+use Composer\Autoload\ClassLoader;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -553,7 +554,14 @@ class OptionsService
                 $filterName = $paramType->getName();
 
                 if (! array_key_exists($filterName, $filters)) {
-                    $filters[$filterName] = new ReflectionClass($paramType->getName());
+                    if (!class_exists($filterName, false)) {
+                        $dupes = self::findDuplicateMethods($filterName);
+                        if (!empty($dupes)) {
+                            Log::warning('[OptionsService@syncFilters] Skipping ' . $filterName . ' — duplicate methods: ' . implode(', ', $dupes));
+                            continue;
+                        }
+                    }
+                    $filters[$filterName] = new ReflectionClass($filterName);
                 }
 
                 $filter = $filters[$filterName];
@@ -582,6 +590,37 @@ class OptionsService
         } else {
             return $filtersFound;
         }
+    }
+
+    private static function findDuplicateMethods(string $className): array
+    {
+        $file = null;
+
+        foreach (spl_autoload_functions() as $loader) {
+            if (is_array($loader) && $loader[0] instanceof ClassLoader) {
+                $file = $loader[0]->findFile($className);
+                break;
+            }
+        }
+
+        if (!$file || !file_exists($file)) {
+            return [];
+        }
+
+        $content = file_get_contents($file);
+        preg_match_all('/(?:public|protected|private)\s+(?:static\s+)?function\s+(\w+)\s*\(/i', $content, $matches);
+
+        $seen = [];
+        $dupes = [];
+        foreach ($matches[1] as $method) {
+            $key = strtolower($method);
+            if (in_array($key, $seen)) {
+                $dupes[] = $method;
+            }
+            $seen[] = $key;
+        }
+
+        return $dupes;
     }
 
     public static function stripComment($comment)
