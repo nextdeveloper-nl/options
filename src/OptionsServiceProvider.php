@@ -103,10 +103,6 @@ class OptionsServiceProvider extends AbstractServiceProvider
                 ->namespace('NextDeveloper\Options\Http\Controllers')
                 ->group(__DIR__.DIRECTORY_SEPARATOR.'Http'.DIRECTORY_SEPARATOR.'api.routes.php');
         }
-
-        Route::options('{any}',function () {
-            return OptionsService::getOptions( Request::getRequestUri() );
-        })->where('any', '.*');
     }
 
     /**
