@@ -39,7 +39,7 @@ class OptionsService
 
         $route = substr($implodedRoute, 0, strlen($implodedRoute) - 1);
 
-        $options = Requests::where('uri', $route)->first();
+        $options = Requests::where('uri', $route)->where('app', config('app.name'))->first();
 
         $data['uri'] =   $options ? $options['uri'] : 'No direct request can be sent to this URI';
         $data['description']    =   $options ? $options['controller_description']: 'There is no direct request to this URI thus no description.';
@@ -50,7 +50,7 @@ class OptionsService
 
         $data['availableOperations'] = self::getAvailableOperations($options);
 
-        $methods = Requests::where('uri', $route)->get();
+        $methods = Requests::where('uri', $route)->where('app', config('app.name'))->get();
 
         $data['methods'] = [];
 
@@ -220,7 +220,8 @@ class OptionsService
 
                 $newRoute = Requests::withTrashed()->firstOrNew([
                     'uri' => $implodedRoute,
-                    'method' => $route->methods[0]
+                    'method' => $route->methods[0],
+                    'app' => config('app.name'),
                 ]);
 
                 if ($newRoute->trashed()) {
@@ -279,7 +280,7 @@ class OptionsService
         $timer->showDiff('CleanUpStarts');
 
         // Mevcut olmayan Route'ları bulup database'den siliyoruz
-        $allRoutesFromDB = Requests::withTrashed()->select("uri", "method")->get();
+        $allRoutesFromDB = Requests::withTrashed()->where('app', config('app.name'))->select("uri", "method")->get();
 
         foreach ($allRoutesFromDB as $routeFromDB) {
 
@@ -291,7 +292,7 @@ class OptionsService
                 }
             }
 
-            $route = Requests::withTrashed()->where("uri", $routeFromDB->uri)->where("method", $routeFromDB->method)->first();
+            $route = Requests::withTrashed()->where("uri", $routeFromDB->uri)->where("method", $routeFromDB->method)->where('app', config('app.name'))->first();
 
 //            if (!$found) {
 //                if (!$route->trashed()) {

@@ -62,6 +62,7 @@ class Requests extends Model
             'requests',
             'returns',
             'linked_objects',
+            'app',
     ];
 
     /**
@@ -96,6 +97,7 @@ class Requests extends Model
     'requests' => 'array',
     'returns' => 'array',
     'linked_objects' => 'array',
+    'app' => 'string',
     'created_at' => 'datetime',
     'updated_at' => 'datetime',
     'deleted_at' => 'datetime',
